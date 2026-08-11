@@ -1,0 +1,40 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+
+# Flutter generated files
+.flutter-plugins
+.flutter-plugins-dependencies
+.metadata
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Dart generated
+*.g.dart
+*.freezed.dart
+
+# Local configuration
+local.properties
+
+# Keystores / secrets
+*.jks
+*.keystore
+key.properties
