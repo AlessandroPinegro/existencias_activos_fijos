@@ -3,6 +3,7 @@ import '../../../../../core/constants/api_endpoints.dart';
 import '../../../../../core/network/api_client.dart';
 import '../../../../../data/models/existencia_model.dart';
 import '../../../../../data/models/user_model.dart';
+import 'image_viewer_dialog.dart';
 
 class HistorialModalWidget {
   static void show(
@@ -495,6 +496,51 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
               ),
             ),
           ],
+
+          if ((hist.tipoMovimiento == 'REGISTRO_ADICIONAL' || hist.tipoMovimiento == 'CAMBIO_IMAGEN') &&
+              widget.item.imagenPath != null &&
+              widget.item.imagenPath!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: () {
+                final imgUrl = ApiEndpoints.resolveImageUrl(widget.item.imagenPath);
+                if (imgUrl != null) {
+                  ImageViewerDialog.show(
+                    context,
+                    imageUrl: imgUrl,
+                    title: widget.item.codigo,
+                    subtitle: widget.item.nombreProducto,
+                    almacen: widget.item.almacenNombre,
+                    ubicacion: hist.ubicacion ?? widget.item.ubicacion,
+                  );
+                }
+              },
+              borderRadius: BorderRadius.circular(6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: const Color(0xFF86EFAC)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.photo_camera_rounded, size: 13, color: Color(0xFF16A34A)),
+                    SizedBox(width: 4),
+                    Text(
+                      'Ver Fotografía de Evidencia',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF15803D),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -640,6 +686,44 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                ],
+                if (widget.item.imagenPath != null && widget.item.imagenPath!.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  InkWell(
+                    onTap: () {
+                      final imgUrl = ApiEndpoints.resolveImageUrl(widget.item.imagenPath);
+                      if (imgUrl != null) {
+                        ImageViewerDialog.show(
+                          context,
+                          imageUrl: imgUrl,
+                          title: widget.item.codigo,
+                          subtitle: widget.item.nombreProducto,
+                          almacen: widget.item.almacenNombre,
+                          ubicacion: widget.item.ubicacion,
+                        );
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.photo_camera_rounded, size: 13, color: Color(0xFF16A34A)),
+                          SizedBox(width: 4),
+                          Text(
+                            'Foto',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

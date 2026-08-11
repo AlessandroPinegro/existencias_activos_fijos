@@ -26,4 +26,16 @@ class ApiEndpoints {
   static String subirImagen(int id) => '$baseUrl/mobile/existencias/$id/imagen';
   static String historial(int id) => '$baseUrl/mobile/existencias/$id/historial';
   static String modificarHistorial(int id) => '$baseUrl/mobile/existencias/historial/$id';
+
+  /// Convierte una ruta relativa de imagen (/uploads/...) a una URL absoluta según el entorno
+  static String? resolveImageUrl(String? path) {
+    if (path == null || path.trim().isEmpty) return null;
+    final trimmed = path.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final rootHost = baseUrl.replaceAll(RegExp(r'/api/v1/?$'), '');
+    final cleanPath = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    return '$rootHost$cleanPath';
+  }
 }

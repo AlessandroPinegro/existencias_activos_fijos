@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/constants/api_endpoints.dart';
 import '../../../../../data/models/existencia_model.dart';
+import 'image_viewer_dialog.dart';
 
 class ProductCardWidget extends StatelessWidget {
   final ExistenciaModel item;
@@ -96,6 +98,22 @@ class ProductCardWidget extends StatelessWidget {
       conteoStatusIcon = Icons.add_circle_outline_rounded;
     }
 
+    final hasPhoto = item.imagenPath != null && item.imagenPath!.trim().isNotEmpty;
+
+    void openPhotoViewer() {
+      final imgUrl = ApiEndpoints.resolveImageUrl(item.imagenPath);
+      if (imgUrl != null) {
+        ImageViewerDialog.show(
+          context,
+          imageUrl: imgUrl,
+          title: item.codigo,
+          subtitle: item.nombreProducto,
+          almacen: almacenTxt,
+          ubicacion: ubicacionTxt,
+        );
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
@@ -176,7 +194,7 @@ class ProductCardWidget extends StatelessWidget {
               ),
               const SizedBox(height: 7),
 
-              // Fila 3: Almacén, Ubicación, Lote y Unidad en pills compactos
+              // Fila 3: Almacén, Ubicación, Lote, Unidad y Foto (si existe)
               Wrap(
                 spacing: 6,
                 runSpacing: 4,
@@ -206,11 +224,22 @@ class ProductCardWidget extends StatelessWidget {
                     const Color(0xFFF1F5F9),
                     const Color(0xFF475569),
                   ),
+                  if (hasPhoto)
+                    InkWell(
+                      onTap: openPhotoViewer,
+                      borderRadius: BorderRadius.circular(6),
+                      child: _buildCompactPill(
+                        Icons.photo_camera_rounded,
+                        'Ver Foto',
+                        const Color(0xFFF0FDF4),
+                        const Color(0xFF16A34A),
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
 
-              // Fila 4: Estado del conteo, botón de historial y botón de acción
+              // Fila 4: Estado del conteo, botón de foto (si tiene), botón de historial y botón de acción
               Row(
                 children: [
                   Expanded(
@@ -236,6 +265,32 @@ class ProductCardWidget extends StatelessWidget {
                       ],
                     ),
                   ),
+
+                  // Botón Acceso Rápido a Fotografía si existe
+                  if (hasPhoto) ...[
+                    SizedBox(
+                      height: 30,
+                      width: 32,
+                      child: OutlinedButton(
+                        onPressed: openPhotoViewer,
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          side: const BorderSide(color: Color(0xFF86EFAC)),
+                          backgroundColor: const Color(0xFFF0FDF4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.photo_camera_rounded,
+                          size: 16,
+                          color: Color(0xFF16A34A),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+
                   // Botón Historial
                   SizedBox(
                     height: 30,
@@ -245,10 +300,10 @@ class ProductCardWidget extends StatelessWidget {
                       style: OutlinedButton.styleFrom(
                         padding: EdgeInsets.zero,
                         side: const BorderSide(color: Color(0xFFCBD5E1)),
+                        backgroundColor: const Color(0xFFF8FAFC),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(7),
                         ),
-                        backgroundColor: const Color(0xFFF8FAFC),
                       ),
                       child: const Icon(
                         Icons.history_rounded,

@@ -4,6 +4,7 @@ import '../../../../../core/constants/api_endpoints.dart';
 import '../../../../../core/network/api_client.dart';
 import '../../../../../data/models/existencia_model.dart';
 import '../../../../../data/models/user_model.dart';
+import 'image_viewer_dialog.dart';
 
 class ConteoModalWidget {
   static void show(
@@ -529,6 +530,25 @@ class ConteoModalWidget {
                               color: Color(0xFF16A34A),
                               size: 18,
                             ),
+                          ),
+                        ] else if (item.imagenPath != null && item.imagenPath!.isNotEmpty) ...[
+                          const SizedBox(width: 8),
+                          IconButton(
+                            tooltip: 'Ver foto actual',
+                            onPressed: () {
+                              final imgUrl = ApiEndpoints.resolveImageUrl(item.imagenPath);
+                              if (imgUrl != null) {
+                                ImageViewerDialog.show(
+                                  context,
+                                  imageUrl: imgUrl,
+                                  title: item.codigo,
+                                  subtitle: item.nombreProducto,
+                                  almacen: item.almacenNombre,
+                                  ubicacion: item.ubicacion,
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.image_outlined, color: Color(0xFF16A34A), size: 22),
                           ),
                         ],
                       ],
