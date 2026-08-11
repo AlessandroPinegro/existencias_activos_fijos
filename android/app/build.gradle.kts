@@ -43,13 +43,15 @@ flutter {
     source = "../.."
 }
 
-tasks.matching { it.name.startsWith("assemble") }.configureEach {
-    doLast {
-        val srcDir = file("C:/tmp/hotel_build/app/outputs/flutter-apk")
-        val dstDir = project.rootDir.parentFile.resolve("build/app/outputs/flutter-apk")
-        if (srcDir.exists()) {
-            dstDir.mkdirs()
-            srcDir.copyRecursively(dstDir, overwrite = true)
-        }
+tasks.register<Copy>("syncApkOutputs") {
+    from("C:/tmp/hotel_build/app/outputs")
+    into(project.rootDir.parentFile.resolve("build/app/outputs"))
+}
+
+afterEvaluate {
+    tasks.matching { it.name.startsWith("assemble") || it.name.startsWith("package") }.configureEach {
+        finalizedBy("syncApkOutputs")
     }
 }
+
+

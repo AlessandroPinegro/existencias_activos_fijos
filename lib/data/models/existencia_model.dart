@@ -89,3 +89,74 @@ class ExistenciaModel {
     );
   }
 }
+
+class ExistenciaHistorialModel {
+  final int id;
+  final int existenciaId;
+  final String tipoMovimiento;
+  final double stockSistemaMomento;
+  final double cantidadContadaAnterior;
+  final double cantidadContadaNueva;
+  final double diferenciaMomento;
+  final String? condicionAnterior;
+  final String? condicionNueva;
+  final String? observacion;
+  final String? archivoPath;
+  final String? ubicacion;
+  final String? userName;
+  final String? createdAt;
+
+  ExistenciaHistorialModel({
+    required this.id,
+    required this.existenciaId,
+    required this.tipoMovimiento,
+    required this.stockSistemaMomento,
+    required this.cantidadContadaAnterior,
+    required this.cantidadContadaNueva,
+    required this.diferenciaMomento,
+    this.condicionAnterior,
+    this.condicionNueva,
+    this.observacion,
+    this.archivoPath,
+    this.ubicacion,
+    this.userName,
+    this.createdAt,
+  });
+
+  factory ExistenciaHistorialModel.fromJson(Map<String, dynamic> json) {
+    double parseDouble(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString()) ?? 0.0;
+    }
+
+    int parseInt(dynamic val) {
+      if (val == null) return 0;
+      if (val is int) return val;
+      return int.tryParse(val.toString()) ?? 0;
+    }
+
+    String? name;
+    if (json['user'] is Map) {
+      name = json['user']['name'] ?? json['user']['nombres'];
+    }
+
+    return ExistenciaHistorialModel(
+      id: parseInt(json['id']),
+      existenciaId: parseInt(json['existencia_id']),
+      tipoMovimiento: json['tipo_movimiento']?.toString() ?? 'MOVIMIENTO',
+      stockSistemaMomento: parseDouble(json['stock_sistema_momento']),
+      cantidadContadaAnterior: parseDouble(json['cantidad_contada_anterior']),
+      cantidadContadaNueva: parseDouble(json['cantidad_contada_nueva']),
+      diferenciaMomento: parseDouble(json['diferencia_momento']),
+      condicionAnterior: json['condicion_anterior']?.toString(),
+      condicionNueva: json['condicion_nueva']?.toString(),
+      observacion: json['observacion']?.toString(),
+      archivoPath: json['archivo_path']?.toString(),
+      ubicacion: json['ubicacion']?.toString(),
+      userName: name,
+      createdAt: json['created_at']?.toString(),
+    );
+  }
+}
+
