@@ -94,10 +94,10 @@ class ExistenciaHistorialModel {
   final int id;
   final int existenciaId;
   final String tipoMovimiento;
-  final double stockSistemaMomento;
+  final double? stockSistemaMomento;
   final double cantidadContadaAnterior;
   final double cantidadContadaNueva;
-  final double diferenciaMomento;
+  final double? diferenciaMomento;
   final String? condicionAnterior;
   final String? condicionNueva;
   final String? observacion;
@@ -111,10 +111,10 @@ class ExistenciaHistorialModel {
     required this.id,
     required this.existenciaId,
     required this.tipoMovimiento,
-    required this.stockSistemaMomento,
+    this.stockSistemaMomento,
     required this.cantidadContadaAnterior,
     required this.cantidadContadaNueva,
-    required this.diferenciaMomento,
+    this.diferenciaMomento,
     this.condicionAnterior,
     this.condicionNueva,
     this.observacion,
@@ -126,6 +126,12 @@ class ExistenciaHistorialModel {
   });
 
   factory ExistenciaHistorialModel.fromJson(Map<String, dynamic> json) {
+    double? parseOptionalDouble(dynamic val) {
+      if (val == null) return null;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString());
+    }
+
     double parseDouble(dynamic val) {
       if (val == null) return 0.0;
       if (val is num) return val.toDouble();
@@ -147,10 +153,10 @@ class ExistenciaHistorialModel {
       id: parseInt(json['id']),
       existenciaId: parseInt(json['existencia_id']),
       tipoMovimiento: json['tipo_movimiento']?.toString() ?? 'MOVIMIENTO',
-      stockSistemaMomento: parseDouble(json['stock_sistema_momento']),
+      stockSistemaMomento: parseOptionalDouble(json['stock_sistema_momento']),
       cantidadContadaAnterior: parseDouble(json['cantidad_contada_anterior']),
       cantidadContadaNueva: parseDouble(json['cantidad_contada_nueva']),
-      diferenciaMomento: parseDouble(json['diferencia_momento']),
+      diferenciaMomento: parseOptionalDouble(json['diferencia_momento']),
       condicionAnterior: json['condicion_anterior']?.toString(),
       condicionNueva: json['condicion_nueva']?.toString(),
       observacion: json['observacion']?.toString(),

@@ -45,6 +45,7 @@ class _HistorialModalContent extends StatefulWidget {
 class _HistorialModalContentState extends State<_HistorialModalContent> {
   late Future<dynamic> _historialFuture;
   late double _totalContado;
+  bool _puedeVerStock = false;
 
   @override
   void initState() {
@@ -55,7 +56,16 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
 
   void _loadHistorial() {
     setState(() {
-      _historialFuture = ApiClient.get(ApiEndpoints.historial(widget.item.id));
+      _historialFuture = ApiClient.get(ApiEndpoints.historial(widget.item.id)).then((res) {
+        if (mounted) {
+          final puedeVer = res['puede_ver_stock'] == true ||
+              (res['data'] is Map && res['data']['puede_ver_stock'] == true);
+          setState(() {
+            _puedeVerStock = puedeVer;
+          });
+        }
+        return res;
+      });
     });
   }
 
@@ -275,6 +285,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
   Widget _buildHistorialCard(
     ExistenciaHistorialModel hist,
     String unidadMedida,
+    bool puedeVerStock,
   ) {
     IconData icon;
     String tipoLabel;
@@ -425,44 +436,98 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
           ),
           const SizedBox(height: 6),
 
-          // Cantidad Contada y Botón de Modificar (si coincide el usuario)
+          // Cantidad Contada, Stock Sistema (si tiene permiso) y Botón Modificar
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Text(
-                      'Físico: ',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Físico: ',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            hist.cantidadContadaAnterior > 0
+                                ? '${hist.cantidadContadaAnterior} → ${hist.cantidadContadaNueva} $unidadMedida'
+                                : '${hist.cantidadContadaNueva} $unidadMedida',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Text(
-                      hist.cantidadContadaAnterior > 0
-                          ? '${hist.cantidadContadaAnterior} → ${hist.cantidadContadaNueva} $unidadMedida'
-                          : '${hist.cantidadContadaNueva} $unidadMedida',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
+
+                    // Stock Sistema y Diferencia (Exclusivo si tiene permiso)
+                    if (puedeVerStock && hist.stockSistemaMomento != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Text(
+                          'Stock: ${hist.stockSistemaMomento} $unidadMedida',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF475569),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (hist.diferenciaMomento != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: hist.diferenciaMomento! > 0
+                                ? const Color(0xFFDBEAFE)
+                                : (hist.diferenciaMomento! < 0 ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            hist.diferenciaMomento! > 0
+                                ? 'Dif: +${hist.diferenciaMomento} $unidadMedida'
+                                : (hist.diferenciaMomento! < 0
+                                    ? 'Dif: ${hist.diferenciaMomento} $unidadMedida'
+                                    : 'Dif: 0 $unidadMedida'),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: hist.diferenciaMomento! > 0
+                                  ? const Color(0xFF1D4ED8)
+                                  : (hist.diferenciaMomento! < 0 ? const Color(0xFFB91C1C) : const Color(0xFF15803D)),
+                            ),
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
 
               // Botón de Modificar exclusivo si el usuario autenticado es quien contó
-              if (canEdit)
+              if (canEdit) ...[
+                const SizedBox(width: 6),
                 TextButton.icon(
                   onPressed: () => _openEditDialog(context, hist),
                   icon: const Icon(Icons.edit_rounded, size: 14, color: Color(0xFF2563EB)),
@@ -482,6 +547,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                   ),
                 ),
+              ],
             ],
           ),
 
@@ -615,7 +681,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
             ),
           ),
 
-          // Banner de Resumen: Cantidad Física Contada Actual + Ubicación Original
+          // Banner de Resumen: Cantidad Física Contada Actual + Stock Sistema y Diferencia (si tiene permiso) + Ubicación
           Container(
             margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -624,107 +690,163 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: Row(
+            child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.inventory_2_rounded,
-                    size: 22,
-                    color: Color(0xFF2563EB),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'CANTIDAD FÍSICA TOTAL CONTADA',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF64748B),
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 1),
-                      Text(
-                        '${_totalContado.toStringAsFixed(_totalContado.truncateToDouble() == _totalContado ? 0 : 2)} ${widget.item.unidadMedida}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (widget.item.ubicacion != null && widget.item.ubicacion!.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF1F2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFFECDD3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFFE11D48)),
-                        const SizedBox(width: 3),
-                        Text(
-                          widget.item.ubicacion!,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFBE123C),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-                if (widget.item.imagenPath != null && widget.item.imagenPath!.isNotEmpty) ...[
-                  const SizedBox(width: 6),
-                  InkWell(
-                    onTap: () {
-                      final imgUrl = ApiEndpoints.resolveImageUrl(widget.item.imagenPath);
-                      if (imgUrl != null) {
-                        ImageViewerDialog.show(
-                          context,
-                          imageUrl: imgUrl,
-                          title: widget.item.codigo,
-                          subtitle: widget.item.nombreProducto,
-                          almacen: widget.item.almacenNombre,
-                          ubicacion: widget.item.ubicacion,
-                        );
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF86EFAC)),
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+                      child: const Icon(
+                        Icons.inventory_2_rounded,
+                        size: 22,
+                        color: Color(0xFF2563EB),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.photo_camera_rounded, size: 13, color: Color(0xFF16A34A)),
-                          SizedBox(width: 4),
+                          const Text(
+                            'CANTIDAD FÍSICA TOTAL CONTADA',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF64748B),
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
                           Text(
-                            'Foto',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                            '${_totalContado.toStringAsFixed(_totalContado.truncateToDouble() == _totalContado ? 0 : 2)} ${widget.item.unidadMedida}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    if (widget.item.ubicacion != null && widget.item.ubicacion!.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFECDD3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.location_on_rounded, size: 12, color: Color(0xFFE11D48)),
+                            const SizedBox(width: 3),
+                            Text(
+                              widget.item.ubicacion!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFBE123C),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (widget.item.imagenPath != null && widget.item.imagenPath!.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: () {
+                          final imgUrl = ApiEndpoints.resolveImageUrl(widget.item.imagenPath);
+                          if (imgUrl != null) {
+                            ImageViewerDialog.show(
+                              context,
+                              imageUrl: imgUrl,
+                              title: widget.item.codigo,
+                              subtitle: widget.item.nombreProducto,
+                              almacen: widget.item.almacenNombre,
+                              ubicacion: widget.item.ubicacion,
+                            );
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDF4),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF86EFAC)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.photo_camera_rounded, size: 13, color: Color(0xFF16A34A)),
+                              SizedBox(width: 4),
+                              Text(
+                                'Foto',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+
+                // Fila de Stock Sistema y Diferencia (Exclusivo si el usuario tiene permiso por rol)
+                if (_puedeVerStock) ...[
+                  const Divider(height: 14, color: Color(0xFFE2E8F0)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.storage_rounded, size: 13, color: Color(0xFF64748B)),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Stock Sistema: ',
+                              style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            ),
+                            Text(
+                              '${widget.item.stockSistema.toStringAsFixed(widget.item.stockSistema.truncateToDouble() == widget.item.stockSistema ? 0 : 2)} ${widget.item.unidadMedida}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: (_totalContado - widget.item.stockSistema) > 0
+                              ? const Color(0xFFDBEAFE)
+                              : ((_totalContado - widget.item.stockSistema) < 0
+                                  ? const Color(0xFFFEE2E2)
+                                  : const Color(0xFFDCFCE7)),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          (_totalContado - widget.item.stockSistema) > 0
+                              ? 'Dif: +${(_totalContado - widget.item.stockSistema).toStringAsFixed(1)} ${widget.item.unidadMedida}'
+                              : ((_totalContado - widget.item.stockSistema) < 0
+                                  ? 'Dif: ${(_totalContado - widget.item.stockSistema).toStringAsFixed(1)} ${widget.item.unidadMedida}'
+                                  : 'Conciliado (0)'),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: (_totalContado - widget.item.stockSistema) > 0
+                                ? const Color(0xFF1D4ED8)
+                                : ((_totalContado - widget.item.stockSistema) < 0
+                                    ? const Color(0xFFB91C1C)
+                                    : const Color(0xFF15803D)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -777,7 +899,9 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                         res['success'] == true &&
                         res['data'] is List)
                     ? (res['data'] as List)
-                    : [];
+                    : (res != null && res['data'] is Map && res['data']['historial'] is List
+                        ? res['data']['historial'] as List
+                        : []);
 
                 if (rawList.isEmpty) {
                   return Center(
@@ -837,7 +961,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (ctx, idx) {
                       final hist = items[idx];
-                      return _buildHistorialCard(hist, widget.item.unidadMedida);
+                      return _buildHistorialCard(hist, widget.item.unidadMedida, _puedeVerStock);
                     },
                   ),
                 );
