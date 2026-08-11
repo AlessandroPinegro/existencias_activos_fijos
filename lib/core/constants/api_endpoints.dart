@@ -16,9 +16,13 @@ class ApiEndpoints {
   // Rutas Auth Generales
   static String get login => '$baseUrl/login';
   static String get logout => '$baseUrl/logout';
+  static String sucursales([int? empresaId]) =>
+      empresaId != null ? '$baseUrl/sucursales?empresa_id=$empresaId' : '$baseUrl/sucursales';
 
   // 📱 Rutas Módulo Exclusivo Móvil (/api/v1/mobile/...)
   static String get mobileMenu => '$baseUrl/mobile/menu';
+  static String mobileMenuUrl([int? empresaId]) =>
+      empresaId != null ? '$baseUrl/mobile/menu?empresa_id=$empresaId' : '$baseUrl/mobile/menu';
   static String get existencias => '$baseUrl/mobile/existencias';
   static String get adicional => '$baseUrl/mobile/existencias/adicional';
 

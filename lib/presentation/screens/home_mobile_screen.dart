@@ -35,7 +35,7 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
     super.dispose();
   }
 
-  Future<void> _loadUserAndMenu() async {
+  Future<void> _loadUserAndMenu({int? overrideEmpresaId}) async {
     setState(() {
       _isLoading = true;
       _errorMsg = null;
@@ -47,7 +47,8 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
         _currentUser = UserModel.fromJson(jsonDecode(userStr));
       }
 
-      final res = await ApiClient.get(ApiEndpoints.mobileMenu);
+      final activeEmpresaId = overrideEmpresaId ?? _currentUser?.empresaId;
+      final res = await ApiClient.get(ApiEndpoints.mobileMenuUrl(activeEmpresaId));
 
       if (res['success'] == true && res['data'] is List) {
         final rawList = res['data'] as List;
@@ -106,6 +107,440 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
           .where((m) => m.opciones.isNotEmpty)
           .toList();
     }
+  }
+
+  void _mostrarSelectorEmpresa() {
+    if (_currentUser == null) return;
+    final empresas = _currentUser!.empresasDisponibles;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.70,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.business_rounded, color: Color(0xFF2563EB), size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Seleccionar Empresa Global',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          Text(
+                            'El menú y módulos se sincronizan según la empresa',
+                            style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: empresas.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (ctx, index) {
+                    final emp = empresas[index];
+                    final int empId = emp['id'];
+                    final String empNombre = emp['nombre'];
+                    final isSelected = _currentUser!.empresaId == empId;
+
+                    return InkWell(
+                      onTap: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        Navigator.pop(ctx);
+                        if (isSelected) return;
+
+                        // Consultar todas las sucursales de esta empresa desde la API
+                        int? nuevaSucursalId;
+                        String? nuevaSucursalNom;
+
+                        try {
+                          final sucRes = await ApiClient.get(ApiEndpoints.sucursales(empId));
+                          if (sucRes['success'] == true && sucRes['data'] is List) {
+                            final list = sucRes['data'] as List;
+                            if (list.isNotEmpty) {
+                              final principal = list.firstWhere(
+                                (s) => s['es_principal'] == true || s['es_principal'] == 1,
+                                orElse: () => list.first,
+                              );
+                              nuevaSucursalId = principal['id'] is int
+                                  ? principal['id']
+                                  : int.tryParse(principal['id'].toString()) ?? 0;
+                              nuevaSucursalNom = principal['nombre']?.toString();
+                            }
+                          }
+                        } catch (_) {}
+
+                        // Fallback a relaciones si la API no retornó lista
+                        if (nuevaSucursalId == null || nuevaSucursalId == 0) {
+                          final sucsDeEmp = _currentUser!.sucursalesDeEmpresa(empId);
+                          if (sucsDeEmp.isNotEmpty) {
+                            final principal = sucsDeEmp.firstWhere(
+                              (s) => s.esPrincipal,
+                              orElse: () => sucsDeEmp.first,
+                            );
+                            nuevaSucursalId = principal.sucursalId;
+                            nuevaSucursalNom = principal.sucursalNombre;
+                          }
+                        }
+
+                        final updatedUser = _currentUser!.copyWith(
+                          empresaId: empId,
+                          empresaNombre: empNombre,
+                          sucursalId: nuevaSucursalId,
+                          sucursalNombre: nuevaSucursalNom,
+                        );
+
+                        await SecureStorageService.saveUserData(jsonEncode(updatedUser.toJson()));
+
+                        if (mounted) {
+                          setState(() {
+                            _currentUser = updatedUser;
+                          });
+
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Empresa: $empNombre${nuevaSucursalNom != null ? ' • $nuevaSucursalNom' : ''}'),
+                              backgroundColor: const Color(0xFF2563EB),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+
+                          await _loadUserAndMenu(overrideEmpresaId: empId);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                            width: isSelected ? 1.5 : 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isSelected ? const Color(0xFFDBEAFE) : Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                Icons.business_rounded,
+                                size: 20,
+                                color: isSelected ? const Color(0xFF1D4ED8) : const Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                empNombre,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                  color: isSelected ? const Color(0xFF1E3A8A) : const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(Icons.check_circle_rounded, color: Color(0xFF2563EB), size: 22)
+                            else
+                              const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 20),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _mostrarSelectorSucursal() {
+    if (_currentUser == null) return;
+    final int activeEmpId = _currentUser!.empresaId ?? 0;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.70,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F3FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.storefront_rounded, color: Color(0xFF7C3AED), size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Seleccionar Sucursal',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                          ),
+                          Text(
+                            'Sucursales de ${_currentUser!.empresaNombre}',
+                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: FutureBuilder<dynamic>(
+                  future: ApiClient.get(ApiEndpoints.sucursales(activeEmpId)),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: CircularProgressIndicator(color: Color(0xFF7C3AED)),
+                        ),
+                      );
+                    }
+
+                    List<Map<String, dynamic>> sucursales = [];
+                    if (snapshot.hasData &&
+                        snapshot.data is Map &&
+                        snapshot.data['success'] == true &&
+                        snapshot.data['data'] is List) {
+                      sucursales = (snapshot.data['data'] as List).map((s) {
+                        return {
+                          'id': s['id'] is int ? s['id'] : int.tryParse(s['id'].toString()) ?? 0,
+                          'nombre': s['nombre']?.toString() ?? 'Sucursal #${s['id']}',
+                          'es_principal': s['es_principal'] == true || s['es_principal'] == 1,
+                          'codigo': s['codigo']?.toString(),
+                        };
+                      }).toList();
+                    }
+
+                    // Fallback si la API no devolvió registros
+                    if (sucursales.isEmpty) {
+                      final sucsDeEmp = _currentUser!.sucursalesDeEmpresa(activeEmpId);
+                      sucursales = sucsDeEmp.map((s) => {
+                        'id': s.sucursalId,
+                        'nombre': s.sucursalNombre,
+                        'es_principal': s.esPrincipal,
+                        'codigo': 'SUC-${s.sucursalId}',
+                      }).toList();
+                    }
+
+                    if (sucursales.isEmpty) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.storefront_outlined, size: 40, color: Color(0xFF94A3B8)),
+                              const SizedBox(height: 8),
+                              Text(
+                                'No se encontraron sucursales para ${_currentUser!.empresaNombre}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: sucursales.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (ctx, index) {
+                        final suc = sucursales[index];
+                        final int sucId = suc['id'];
+                        final String sucNombre = suc['nombre'];
+                        final bool esPrincipal = suc['es_principal'] == true;
+                        final isSelected = _currentUser!.sucursalId == sucId;
+
+                        return InkWell(
+                          onTap: () async {
+                            final messenger = ScaffoldMessenger.of(context);
+                            Navigator.pop(ctx);
+                            if (isSelected) return;
+
+                            final updatedUser = _currentUser!.copyWith(
+                              sucursalId: sucId,
+                              sucursalNombre: sucNombre,
+                            );
+
+                            await SecureStorageService.saveUserData(jsonEncode(updatedUser.toJson()));
+
+                            if (mounted) {
+                              setState(() {
+                                _currentUser = updatedUser;
+                              });
+
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text('Sucursal activa: $sucNombre'),
+                                  backgroundColor: const Color(0xFF7C3AED),
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFFF5F3FF) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF7C3AED) : const Color(0xFFE2E8F0),
+                                width: isSelected ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFFEDE9FE) : Colors.white,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.storefront_rounded,
+                                    size: 20,
+                                    color: isSelected ? const Color(0xFF6D28D9) : const Color(0xFF64748B),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              sucNombre,
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                                color: isSelected ? const Color(0xFF5B21B6) : const Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                          ),
+                                          if (esPrincipal)
+                                            Container(
+                                              margin: const EdgeInsets.only(left: 6),
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFDCFCE7),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: const Text(
+                                                'Principal',
+                                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      if (suc['codigo'] != null && suc['codigo'].toString().isNotEmpty) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Código: ${suc['codigo']}',
+                                          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(Icons.check_circle_rounded, color: Color(0xFF7C3AED), size: 22)
+                                else
+                                  const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 20),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _logout() async {
@@ -210,7 +645,7 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
             margin: const EdgeInsets.only(right: 8),
             child: IconButton(
               icon: const Icon(Icons.refresh_rounded, color: Color(0xFF475569), size: 22),
-              tooltip: 'Actualizar',
+              tooltip: 'Actualizar Menú',
               style: IconButton.styleFrom(
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
@@ -218,7 +653,7 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
                   side: const BorderSide(color: Color(0xFFE2E8F0)),
                 ),
               ),
-              onPressed: _loadUserAndMenu,
+              onPressed: () => _loadUserAndMenu(),
             ),
           ),
           Container(
@@ -254,14 +689,14 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
             )
           : RefreshIndicator(
               color: const Color(0xFF2563EB),
-              onRefresh: _loadUserAndMenu,
+              onRefresh: () => _loadUserAndMenu(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tarjeta Limpia de Empresa y Sucursal
+                    // Tarjeta Interactiva de Empresa y Sucursal
                     _buildLocationCard(empresaName, sucursalName),
                     const SizedBox(height: 16),
 
@@ -340,9 +775,9 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Icon(
-                                Icons.widgets_rounded,
-                                color: Color(0xFF2563EB),
+                                Icons.grid_view_rounded,
                                 size: 18,
+                                color: Color(0xFF2563EB),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -359,23 +794,23 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE2E8F0),
+                            color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
                             '$_totalOpcionesCount ${_totalOpcionesCount == 1 ? 'Opción' : 'Opciones'}',
                             style: const TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w700,
                               color: Color(0xFF475569),
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
-                    // Listado de Módulos
+                    // Lista de Módulos
                     if (_filteredModules.isEmpty)
                       _buildEmptyState()
                     else
@@ -393,7 +828,6 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
   Widget _buildLocationCard(String empresaName, String sucursalName) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -408,92 +842,119 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
       ),
       child: Row(
         children: [
+          // Selector Interactivo de Empresa
           Expanded(
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.business_rounded, size: 16, color: Color(0xFF2563EB)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'EMPRESA',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF94A3B8),
-                          letterSpacing: 0.5,
-                        ),
+            child: InkWell(
+              onTap: _mostrarSelectorEmpresa,
+              borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      Text(
-                        empresaName,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: const Icon(Icons.business_rounded, size: 16, color: Color(0xFF2563EB)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Text(
+                                'EMPRESA',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF94A3B8),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              SizedBox(width: 2),
+                              Icon(Icons.keyboard_arrow_down_rounded, size: 13, color: Color(0xFF2563EB)),
+                            ],
+                          ),
+                          Text(
+                            empresaName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           Container(
             width: 1,
             height: 28,
             color: const Color(0xFFE2E8F0),
-            margin: const EdgeInsets.symmetric(horizontal: 12),
           ),
+          // Selector Interactivo de Sucursal
           Expanded(
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5F3FF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.storefront_rounded, size: 16, color: Color(0xFF7C3AED)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'SUCURSAL',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF94A3B8),
-                          letterSpacing: 0.5,
-                        ),
+            child: InkWell(
+              onTap: _mostrarSelectorSucursal,
+              borderRadius: const BorderRadius.horizontal(right: Radius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F3FF),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      Text(
-                        sucursalName,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: const Icon(Icons.storefront_rounded, size: 16, color: Color(0xFF7C3AED)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: const [
+                              Text(
+                                'SUCURSAL',
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF94A3B8),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              SizedBox(width: 2),
+                              Icon(Icons.keyboard_arrow_down_rounded, size: 13, color: Color(0xFF7C3AED)),
+                            ],
+                          ),
+                          Text(
+                            sucursalName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -518,29 +979,25 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header de la Categoría/Módulo
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+          // Cabecera del Módulo
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+            ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.folder_rounded,
-                    color: Color(0xFF2563EB),
-                    size: 18,
-                  ),
+                Icon(
+                  _parseModuleIcon(modulo.moduleIcono),
+                  size: 18,
+                  color: const Color(0xFF2563EB),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     modulo.moduleNombre,
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF1E293B),
                     ),
@@ -549,33 +1006,32 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${modulo.opciones.length}',
                     style: const TextStyle(
                       fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF2563EB),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
 
-          // Lista de Opciones
+          // Lista de Opciones del Módulo
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             padding: const EdgeInsets.all(12),
             itemCount: modulo.opciones.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, optIndex) {
-              final opcion = modulo.opciones[optIndex];
-              return _buildOptionTile(context, opcion);
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (ctx, idx) {
+              final opcion = modulo.opciones[idx];
+              return _buildOptionCard(opcion);
             },
           ),
         ],
@@ -583,56 +1039,49 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
     );
   }
 
-  Widget _buildOptionTile(BuildContext context, MobileOptionModel opcion) {
-    final isCargaMasiva = opcion.codigoNivel == '32' || opcion.opcion.toLowerCase().contains('carga masiva');
-
+  Widget _buildOptionCard(MobileOptionModel opcion) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _navegarAOpcion(context, opcion),
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isCargaMasiva ? const Color(0xFFBFDBFE) : const Color(0xFFE2E8F0),
-              width: isCargaMasiva ? 1.2 : 1,
-            ),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
           child: Row(
             children: [
-              // Icono con Degradado Suave
+              // Icono Grande con Fondo
               Container(
-                width: 48,
-                height: 48,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isCargaMasiva
-                        ? [const Color(0xFF2563EB), const Color(0xFF3B82F6)]
-                        : [const Color(0xFF475569), const Color(0xFF64748B)],
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: (isCargaMasiva ? const Color(0xFF2563EB) : Colors.black).withValues(alpha: 0.2),
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.25),
                       blurRadius: 6,
-                      offset: const Offset(0, 3),
+                      offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Icon(
-                  isCargaMasiva ? Icons.qr_code_scanner_rounded : Icons.touch_app_rounded,
+                  _parseOptionIcon(opcion.icono, opcion.opcion),
                   color: Colors.white,
-                  size: 24,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
-              // Contenido
+              // Información de la Opción
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -643,59 +1092,58 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
                           child: Text(
                             opcion.opcion,
                             style: const TextStyle(
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              fontSize: 15,
                               color: Color(0xFF0F172A),
                             ),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isCargaMasiva ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(
-                              color: isCargaMasiva ? const Color(0xFF93C5FD) : const Color(0xFFCBD5E1),
+                        if (opcion.codigoNivel.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                            ),
+                            child: Text(
+                              'CÓD. ${opcion.codigoNivel}',
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1D4ED8),
+                              ),
                             ),
                           ),
-                          child: Text(
-                            'CÓD. ${opcion.codigoNivel}',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: isCargaMasiva ? const Color(0xFF1D4ED8) : const Color(0xFF475569),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
-                      isCargaMasiva
-                          ? 'Conteo físico, toma de inventario y registro de existencias'
-                          : 'Acceso móvil al módulo del sistema',
+                      _getOptionDescription(opcion.opcion),
                       style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 11.5,
                         color: Color(0xFF64748B),
-                        height: 1.25,
+                        height: 1.2,
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
 
-              // Flecha de Acción
+              // Flecha de Navegación
               Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: isCargaMasiva ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEFF6FF),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.arrow_forward_ios_rounded,
-                  size: 13,
-                  color: isCargaMasiva ? const Color(0xFF2563EB) : const Color(0xFF94A3B8),
+                  size: 12,
+                  color: Color(0xFF2563EB),
                 ),
               ),
             ],
@@ -705,52 +1153,98 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
     );
   }
 
+  IconData _parseModuleIcon(String? iconName) {
+    if (iconName == null) return Icons.folder_rounded;
+    final lower = iconName.toLowerCase();
+    if (lower.contains('box') || lower.contains('existenc') || lower.contains('inven')) {
+      return Icons.inventory_2_rounded;
+    }
+    if (lower.contains('shop') || lower.contains('cart') || lower.contains('vent')) {
+      return Icons.point_of_sale_rounded;
+    }
+    if (lower.contains('hotel') || lower.contains('bed') || lower.contains('reser')) {
+      return Icons.hotel_rounded;
+    }
+    if (lower.contains('shield') || lower.contains('lock') || lower.contains('segur')) {
+      return Icons.shield_rounded;
+    }
+    return Icons.folder_rounded;
+  }
+
+  IconData _parseOptionIcon(String? iconName, String title) {
+    final lowerTitle = title.toLowerCase();
+    if (lowerTitle.contains('carga masiva') || lowerTitle.contains('conteo')) {
+      return Icons.qr_code_scanner_rounded;
+    }
+    if (lowerTitle.contains('stock') || lowerTitle.contains('existenc')) {
+      return Icons.inventory_rounded;
+    }
+    if (lowerTitle.contains('report') || lowerTitle.contains('grafic')) {
+      return Icons.insert_chart_outlined_rounded;
+    }
+
+    if (iconName != null) {
+      final lower = iconName.toLowerCase();
+      if (lower.contains('mobile') || lower.contains('phone')) return Icons.phone_android_rounded;
+      if (lower.contains('task')) return Icons.task_alt_rounded;
+      if (lower.contains('user')) return Icons.person_rounded;
+    }
+
+    return Icons.widgets_rounded;
+  }
+
+  String _getOptionDescription(String optionTitle) {
+    final lower = optionTitle.toLowerCase();
+    if (lower.contains('carga masiva')) {
+      return 'Conteo físico, toma de inventario y registro de existencias';
+    }
+    if (lower.contains('reporte')) {
+      return 'Consulta de avances, conciliaciones y diferencias';
+    }
+    if (lower.contains('tarea')) {
+      return 'Tareas y productos asignados al usuario';
+    }
+    return 'Módulo operativo móvil';
+  }
+
   Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
-              shape: BoxShape.circle,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                size: 40,
+                color: Color(0xFF94A3B8),
+              ),
             ),
-            child: const Icon(Icons.phonelink_off_rounded, size: 36, color: Color(0xFF94A3B8)),
-          ),
-          const SizedBox(height: 14),
-          const Text(
-            'No hay módulos disponibles',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
-              color: Color(0xFF1E293B),
+            const SizedBox(height: 12),
+            const Text(
+              'No se encontraron opciones',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF334155),
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'No se encontraron opciones móviles con el criterio de búsqueda o asignadas a tu rol.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton.icon(
-            onPressed: _loadUserAndMenu,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Recargar Menú'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            const SizedBox(height: 4),
+            const Text(
+              'Prueba buscando con otro término o limpia el filtro.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF64748B),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -760,7 +1254,10 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const CargaMasivaScreen()),
-      );
+      ).then((_) {
+        // Al regresar de carga masiva, refrescar si es necesario
+        _loadUserAndMenu();
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
