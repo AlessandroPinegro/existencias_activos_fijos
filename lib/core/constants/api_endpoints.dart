@@ -13,19 +13,17 @@ class ApiEndpoints {
     return 'http://127.0.0.1:8000/api/v1';
   }
 
-
-  // Rutas Auth
+  // Rutas Auth Generales
   static String get login => '$baseUrl/login';
   static String get logout => '$baseUrl/logout';
+
+  // 📱 Rutas Módulo Exclusivo Móvil (/api/v1/mobile/...)
   static String get mobileMenu => '$baseUrl/mobile/menu';
+  static String get existencias => '$baseUrl/mobile/existencias';
+  static String get adicional => '$baseUrl/mobile/existencias/adicional';
 
-  // Rutas Existencias & Conteos
-  static String get existencias => '$baseUrl/existencias';
-  static String get importarExcel => '$baseUrl/existencias/importar-excel';
-  static String get adicional => '$baseUrl/existencias/adicional';
-
-  static String registrarConteo(int id) => '$baseUrl/existencias/$id/conteo';
-  static String subirImagen(int id) => '$baseUrl/existencias/$id/imagen';
-  static String registrarSustento(int id) => '$baseUrl/existencias/$id/sustento';
-  static String historial(int id) => '$baseUrl/existencias/$id/historial';
+  static String registrarConteo(int id) => '$baseUrl/mobile/existencias/$id/conteo';
+  static String subirImagen(int id) => '$baseUrl/mobile/existencias/$id/imagen';
+  static String historial(int id) => '$baseUrl/mobile/existencias/$id/historial';
+  static String modificarHistorial(int id) => '$baseUrl/mobile/existencias/historial/$id';
 }

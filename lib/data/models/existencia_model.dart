@@ -103,6 +103,7 @@ class ExistenciaHistorialModel {
   final String? observacion;
   final String? archivoPath;
   final String? ubicacion;
+  final int? userId;
   final String? userName;
   final String? createdAt;
 
@@ -119,6 +120,7 @@ class ExistenciaHistorialModel {
     this.observacion,
     this.archivoPath,
     this.ubicacion,
+    this.userId,
     this.userName,
     this.createdAt,
   });
@@ -154,6 +156,7 @@ class ExistenciaHistorialModel {
       observacion: json['observacion']?.toString(),
       archivoPath: json['archivo_path']?.toString(),
       ubicacion: json['ubicacion']?.toString(),
+      userId: json['user_id'] != null ? parseInt(json['user_id']) : null,
       userName: name,
       createdAt: json['created_at']?.toString(),
     );

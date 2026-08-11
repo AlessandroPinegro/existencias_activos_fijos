@@ -138,6 +138,7 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
     ConteoModalWidget.show(
       context,
       item: item,
+      currentUser: _currentUser,
       onSaved: _fetchExistencias,
       onOpenHistorial: () => _openHistorialModal(item),
     );
@@ -147,6 +148,8 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
     HistorialModalWidget.show(
       context,
       item: item,
+      currentUser: _currentUser,
+      onModified: _fetchExistencias,
     );
   }
 
