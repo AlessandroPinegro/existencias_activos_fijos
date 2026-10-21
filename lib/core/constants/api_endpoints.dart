@@ -2,15 +2,29 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class ApiEndpoints {
-  // 🤖 Para Emulador Android: usa http://10.0.2.2:8000/api/v1 (IP del localhost de la PC)
-  static String get baseUrl {
+  // 🌐 Alternar entre Nube (true) y Local (false)
+  static const bool useCloud = true;
+
+  // URL del Servidor en la Nube
+  static const String cloudUrl = 'https://cp.sistemadeinventariosgenerales.com/api/v1';
+
+  // 💻 URLs para Entorno Local
+  static String get _localUrl {
     if (kIsWeb) {
       return 'http://127.0.0.1:8000/api/v1';
     }
     if (Platform.isAndroid) {
-      return 'http://10.0.2.2:8000/api/v1';
+      return 'http://10.0.2.2:8000/api/v1'; // IP del localhost para emulador Android
     }
     return 'http://127.0.0.1:8000/api/v1';
+  }
+
+  // URL Base activa
+  static String get baseUrl {
+    if (useCloud) {
+      return cloudUrl;
+    }
+    return _localUrl;
   }
 
   // Rutas Auth Generales
