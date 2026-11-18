@@ -9,6 +9,7 @@ import 'widgets/product_card_widget.dart';
 import 'widgets/conteo_modal_widget.dart';
 import 'widgets/adicional_modal_widget.dart';
 import 'widgets/historial_modal_widget.dart';
+import 'widgets/barcode_scanner_widget.dart';
 
 class CargaMasivaScreen extends StatefulWidget {
   const CargaMasivaScreen({super.key});
@@ -552,6 +553,67 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
     );
   }
 
+  Future<void> _openBarcodeScanner() async {
+    FocusScope.of(context).unfocus();
+    final scannedCode = await BarcodeScannerWidget.show(
+      context,
+      title: 'Escanear Producto',
+      subtitle: 'Apunta al código de barras o QR para buscar',
+    );
+
+    if (scannedCode == null || scannedCode.trim().isEmpty || !mounted) return;
+
+    final code = scannedCode.trim();
+    _searchCtrl.text = code;
+    _searchCtrl.selection = TextSelection.fromPosition(
+      TextPosition(offset: code.length),
+    );
+    _applyFilters();
+
+    // Si hay otros filtros activos que ocultan el producto escaneado, los limpiamos
+    // automáticamente cuando el código sí existe en el listado general.
+    if (_filteredExistencias.isEmpty &&
+        (_selectedFilter != 'TODOS' ||
+            _selectedAlmacen != null ||
+            _selectedUbicacion != null)) {
+      final query = code.toLowerCase();
+      final existsGlobally = _existencias.any(
+        (item) =>
+            item.codigo.toLowerCase().contains(query) ||
+            item.nombreProducto.toLowerCase().contains(query) ||
+            (item.lote?.toLowerCase().contains(query) ?? false) ||
+            (item.ubicacion?.toLowerCase().contains(query) ?? false),
+      );
+
+      if (existsGlobally) {
+        setState(() {
+          _selectedFilter = 'TODOS';
+          _selectedAlmacen = null;
+          _selectedUbicacion = null;
+        });
+        _applyFilters();
+      }
+    }
+
+    if (!mounted) return;
+    final count = _filteredExistencias.length;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            count > 0
+                ? 'Código "$code" • $count ${count == 1 ? 'resultado encontrado' : 'resultados encontrados'}'
+                : 'Código "$code" • Sin coincidencias en el inventario',
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          backgroundColor:
+              count > 0 ? const Color(0xFF0F172A) : const Color(0xFFD97706),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
     final empresaName = _currentUser?.empresaNombre?.isNotEmpty == true
@@ -650,15 +712,40 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
                     hintText: 'Buscar por código, nombre, almacén, ubicación...',
                     hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
                     prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF2563EB)),
-                    suffixIcon: _searchCtrl.text.isNotEmpty
-                        ? IconButton(
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_searchCtrl.text.isNotEmpty)
+                          IconButton(
+                            tooltip: 'Limpiar búsqueda',
                             icon: const Icon(Icons.clear, size: 18),
                             onPressed: () {
                               _searchCtrl.clear();
                               _applyFilters();
                             },
-                          )
-                        : null,
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: IconButton(
+                            tooltip: 'Escanear código de barras',
+                            icon: const Icon(
+                              Icons.qr_code_scanner_rounded,
+                              size: 21,
+                              color: Color(0xFF2563EB),
+                            ),
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFFEFF6FF),
+                              padding: const EdgeInsets.all(6),
+                              minimumSize: const Size(34, 34),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                            ),
+                            onPressed: _openBarcodeScanner,
+                          ),
+                        ),
+                      ],
+                    ),
                     filled: true,
                     fillColor: Colors.white,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
