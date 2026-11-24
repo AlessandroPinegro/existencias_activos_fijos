@@ -69,7 +69,7 @@ class ConteoModalWidget {
                                   border: Border.all(color: const Color(0xFFBFDBFE)),
                                 ),
                                 child: Text(
-                                  'ITEM #${item.item} • ${item.codigo}',
+                                  'ITEM #${item.item} • ${item.codigo}${item.hasValidSerie ? ' • SERIE: ${item.cleanSerie}' : ''}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
@@ -328,6 +328,50 @@ class ConteoModalWidget {
                               ),
                             ],
                           ),
+                          if (item.hasValidSerie) ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Divider(height: 1, color: Color(0xFFE2E8F0)),
+                            ),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF0FDFA),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.tag_rounded, size: 15, color: Color(0xFF0F766E)),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'N° DE SERIE',
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                      Text(
+                                        item.cleanSerie,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                          color: Color(0xFF0F766E),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),

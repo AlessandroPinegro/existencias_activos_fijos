@@ -107,6 +107,7 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
         final matchesQuery = query.isEmpty ||
             item.nombreProducto.toLowerCase().contains(query) ||
             item.codigo.toLowerCase().contains(query) ||
+            (item.serie?.toLowerCase().contains(query) ?? false) ||
             (item.ubicacion?.toLowerCase().contains(query) ?? false) ||
             (item.lote?.toLowerCase().contains(query) ?? false) ||
             (item.almacenNombre?.toLowerCase().contains(query) ?? false);
@@ -580,6 +581,7 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
       final existsGlobally = _existencias.any(
         (item) =>
             item.codigo.toLowerCase().contains(query) ||
+            (item.serie?.toLowerCase().contains(query) ?? false) ||
             item.nombreProducto.toLowerCase().contains(query) ||
             (item.lote?.toLowerCase().contains(query) ?? false) ||
             (item.ubicacion?.toLowerCase().contains(query) ?? false),
@@ -709,7 +711,7 @@ class _CargaMasivaScreenState extends State<CargaMasivaScreen> {
                   controller: _searchCtrl,
                   onChanged: (_) => _applyFilters(),
                   decoration: InputDecoration(
-                    hintText: 'Buscar por código, nombre, almacén, ubicación...',
+                    hintText: 'Buscar por código, serie, nombre, almacén, ubicación...',
                     hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
                     prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF2563EB)),
                     suffixIcon: Row(

@@ -160,6 +160,49 @@ class ProductCardWidget extends StatelessWidget {
                       color: Color(0xFF2563EB),
                     ),
                   ),
+                  if (item.hasValidSerie) ...[
+                    const SizedBox(width: 6),
+                    Flexible(
+                      flex: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDFA),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF99F6E4)),
+                        ),
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              const WidgetSpan(
+                                alignment: PlaceholderAlignment.middle,
+                                child: Padding(
+                                  padding: EdgeInsets.only(right: 3),
+                                  child: Icon(
+                                    Icons.tag_rounded,
+                                    size: 11,
+                                    color: Color(0xFF0F766E),
+                                  ),
+                                ),
+                              ),
+                              TextSpan(
+                                text: item.cleanSerie.toLowerCase().startsWith('serie')
+                                    ? item.cleanSerie
+                                    : 'Serie: ${item.cleanSerie}',
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F766E),
+                                ),
+                              ),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),

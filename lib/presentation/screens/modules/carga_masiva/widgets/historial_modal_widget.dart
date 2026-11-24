@@ -659,7 +659,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                         ),
                       ),
                       Text(
-                        'Item #${widget.item.item} • ${widget.item.codigo} - ${widget.item.nombreProducto}',
+                        'Item #${widget.item.item} • ${widget.item.codigo}${widget.item.hasValidSerie ? ' • SERIE: ${widget.item.cleanSerie}' : ''} - ${widget.item.nombreProducto}',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Color(0xFF64748B),

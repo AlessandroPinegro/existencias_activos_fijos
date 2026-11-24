@@ -12,6 +12,7 @@ class AdicionalModalWidget {
     required VoidCallback onSaved,
   }) {
     final codigoCtrl = TextEditingController();
+    final serieCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
     final countCtrl = TextEditingController();
     final unitCtrl = TextEditingController(text: 'UND');
@@ -102,6 +103,19 @@ class AdicionalModalWidget {
                         labelText: 'Código del Producto (Opcional)',
                         hintText: 'ej: 001009001 o código de barras',
                         prefixIcon: const Icon(Icons.qr_code_rounded, size: 18, color: Color(0xFF2563EB)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Campo: Serie del Producto (Opcional)
+                    TextField(
+                      controller: serieCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'N° de Serie (Opcional)',
+                        hintText: 'ej: SN-88291039',
+                        prefixIcon: const Icon(Icons.tag_rounded, size: 18, color: Color(0xFF0F766E)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                       ),
@@ -433,6 +447,10 @@ class AdicionalModalWidget {
 
                                 if (codigoCtrl.text.trim().isNotEmpty) {
                                   fields['codigo'] = codigoCtrl.text.trim();
+                                }
+
+                                if (serieCtrl.text.trim().isNotEmpty) {
+                                  fields['serie'] = serieCtrl.text.trim();
                                 }
 
                                 if (localImagePath != null) {

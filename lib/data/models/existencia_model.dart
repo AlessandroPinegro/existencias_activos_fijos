@@ -2,6 +2,7 @@ class ExistenciaModel {
   final int id;
   final int item;
   final String codigo;
+  final String? serie;
   final String nombreProducto;
   final String unidadMedida;
   final double valorUnitario;
@@ -27,6 +28,7 @@ class ExistenciaModel {
     required this.id,
     required this.item,
     required this.codigo,
+    this.serie,
     required this.nombreProducto,
     required this.unidadMedida,
     required this.valorUnitario,
@@ -49,6 +51,15 @@ class ExistenciaModel {
     this.sustentoArchivoPath,
   });
 
+  bool get hasValidSerie =>
+      serie != null &&
+      serie!.trim().isNotEmpty &&
+      serie!.trim().toLowerCase() != 'null' &&
+      serie!.trim() != '-' &&
+      serie!.trim() != '—';
+
+  String get cleanSerie => serie?.trim() ?? '';
+
   factory ExistenciaModel.fromJson(Map<String, dynamic> json) {
     double parseDouble(dynamic val) {
       if (val == null) return 0.0;
@@ -62,10 +73,20 @@ class ExistenciaModel {
       return int.tryParse(val.toString()) ?? 0;
     }
 
+    String? parseSerie(dynamic val) {
+      if (val == null) return null;
+      final raw = val.toString().trim();
+      if (raw.isEmpty || raw.toLowerCase() == 'null' || raw == '-' || raw == '—') {
+        return null;
+      }
+      return raw;
+    }
+
     return ExistenciaModel(
       id: parseInt(json['id']),
       item: parseInt(json['item']),
       codigo: json['codigo']?.toString() ?? '',
+      serie: parseSerie(json['serie']),
       nombreProducto: json['nombre_producto']?.toString() ?? '',
       unidadMedida: json['unidad_medida']?.toString() ?? 'UND',
       valorUnitario: parseDouble(json['valor_unitario']),
