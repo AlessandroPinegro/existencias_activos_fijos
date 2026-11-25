@@ -20,8 +20,8 @@ class ApiClient {
   static Future<Map<String, dynamic>> get(String url) async {
     final headers = await _getHeaders();
     final response = await http.get(Uri.parse(url), headers: headers).timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => throw Exception('Tiempo de espera agotado al conectar al servidor'),
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('Tiempo de espera agotado al conectar al servidor (30s)'),
     );
     return _parseResponse(response);
   }
@@ -33,8 +33,8 @@ class ApiClient {
       headers: headers,
       body: jsonEncode(body),
     ).timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => throw Exception('Tiempo de espera agotado al conectar al servidor'),
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('Tiempo de espera agotado al conectar al servidor (30s)'),
     );
     return _parseResponse(response);
   }
@@ -46,8 +46,8 @@ class ApiClient {
       headers: headers,
       body: jsonEncode(body),
     ).timeout(
-      const Duration(seconds: 10),
-      onTimeout: () => throw Exception('Tiempo de espera agotado al conectar al servidor'),
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('Tiempo de espera agotado al conectar al servidor (30s)'),
     );
     return _parseResponse(response);
   }

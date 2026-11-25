@@ -17,6 +17,13 @@ class ConteoModalWidget {
     final countCtrl = TextEditingController();
     final ubicacionCtrl = TextEditingController();
     final obsCtrl = TextEditingController(text: item.observacion ?? '');
+    final presentacionCtrl = TextEditingController(
+      text: item.hasPresentacion
+          ? (item.presentacion! % 1 == 0
+              ? item.presentacion!.toInt().toString()
+              : item.presentacion!.toString())
+          : '',
+    );
     final imagePicker = ImagePicker();
     String? localImagePath;
     bool isSaving = false;
@@ -69,7 +76,7 @@ class ConteoModalWidget {
                                   border: Border.all(color: const Color(0xFFBFDBFE)),
                                 ),
                                 child: Text(
-                                  'ITEM #${item.item} • ${item.codigo}${item.hasValidSerie ? ' • SERIE: ${item.cleanSerie}' : ''}',
+                                  'ITEM #${item.item} • ${item.codigo}${item.hasValidSerie ? ' • SERIE: ${item.cleanSerie}' : ''}${item.hasPresentacion ? ' • PRES: ${item.presentacion! % 1 == 0 ? item.presentacion!.toInt() : item.presentacion!.toStringAsFixed(2)} kg' : ''}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
@@ -456,6 +463,96 @@ class ConteoModalWidget {
                     ),
                     const SizedBox(height: 14),
 
+                    // Input: Presentación en Kilos y Cálculo (Sólo si el producto tiene presentación configurada)
+                    if (item.hasPresentacion) ...[
+                      TextField(
+                        controller: presentacionCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: 'Presentación (Kilos por saco/unidad)',
+                          labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
+                          hintText: 'Ej. 50, 25, 10.5',
+                          hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
+                          prefixIcon: const Icon(Icons.scale_rounded, color: Color(0xFF0F766E), size: 20),
+                          suffixText: 'kg',
+                          suffixStyle: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF0F766E)),
+                          filled: true,
+                          fillColor: const Color(0xFFF0FDFA),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF99F6E4)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Color(0xFF0F766E), width: 1.5),
+                          ),
+                        ),
+                        onChanged: (_) => setModalState(() {}),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Tarjeta de Cálculo en Vivo (si se ha ingresado presentación)
+                      Builder(builder: (_) {
+                        final presVal = double.tryParse(presentacionCtrl.text.trim());
+                        final countVal = double.tryParse(countCtrl.text.trim()) ?? 0;
+                        if (presVal != null && presVal > 0) {
+                          final totalCalculado = countVal * presVal;
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFA7F3D0)),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.calculate_rounded,
+                                    color: Color(0xFF047857),
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${countVal.toStringAsFixed(countVal % 1 == 0 ? 0 : 2)} ${item.unidadMedida} × ${presVal.toStringAsFixed(presVal % 1 == 0 ? 0 : 2)} kg',
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF065F46),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        'Total: ${totalCalculado.toStringAsFixed(totalCalculado % 1 == 0 ? 0 : 2)} Kilos',
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF047857),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      }),
+                    ],
+
                     // Input 2: Nueva Ubicación
                     TextField(
                       controller: ubicacionCtrl,
@@ -620,13 +717,20 @@ class ConteoModalWidget {
                               });
 
                               try {
+                                final presVal = item.hasPresentacion ? double.tryParse(presentacionCtrl.text.trim()) : null;
+                                final payload = <String, dynamic>{
+                                  'cantidad_contada': count,
+                                  'ubicacion': ubicacionCtrl.text.trim(),
+                                  'observacion': obsCtrl.text.trim(),
+                                };
+                                if (presVal != null && presVal > 0) {
+                                  payload['presentacion'] = presVal;
+                                  payload['total_kilos'] = count * presVal;
+                                }
+
                                 await ApiClient.put(
                                   ApiEndpoints.registrarConteo(item.id),
-                                  {
-                                    'cantidad_contada': count,
-                                    'ubicacion': ubicacionCtrl.text.trim(),
-                                    'observacion': obsCtrl.text.trim(),
-                                  },
+                                  payload,
                                 );
 
                                 if (localImagePath != null) {

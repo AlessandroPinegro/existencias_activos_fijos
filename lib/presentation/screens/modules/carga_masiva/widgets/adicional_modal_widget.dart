@@ -14,6 +14,7 @@ class AdicionalModalWidget {
     final codigoCtrl = TextEditingController();
     final serieCtrl = TextEditingController();
     final nameCtrl = TextEditingController();
+    final presCtrl = TextEditingController();
     final countCtrl = TextEditingController();
     final unitCtrl = TextEditingController(text: 'UND');
     final almacenCtrl = TextEditingController(text: 'DEPOVENT');
@@ -129,6 +130,22 @@ class AdicionalModalWidget {
                         labelText: 'Nombre del Producto *',
                         hintText: 'ej: TUBO PVC SP 2" X 5MTRS',
                         prefixIcon: const Icon(Icons.shopping_bag_outlined, size: 18, color: Color(0xFF475569)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Campo: Presentación (Kilos por saco/unidad) (Opcional)
+                    TextField(
+                      controller: presCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Presentación (Kilos por saco/unidad) (Opcional)',
+                        hintText: 'ej: 50, 25 (Dejar vacío si no aplica)',
+                        prefixIcon: const Icon(Icons.scale_rounded, size: 18, color: Color(0xFF0F766E)),
+                        suffixText: 'kg',
+                        suffixStyle: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                       ),
@@ -451,6 +468,13 @@ class AdicionalModalWidget {
 
                                 if (serieCtrl.text.trim().isNotEmpty) {
                                   fields['serie'] = serieCtrl.text.trim();
+                                }
+
+                                final pVal = double.tryParse(presCtrl.text.trim());
+                                if (pVal != null && pVal > 0) {
+                                  fields['presentacion'] = pVal.toString();
+                                  final cVal = double.tryParse(countCtrl.text.trim()) ?? 0;
+                                  fields['total_kilos'] = (cVal * pVal).toString();
                                 }
 
                                 if (localImagePath != null) {

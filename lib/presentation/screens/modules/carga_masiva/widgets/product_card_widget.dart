@@ -267,6 +267,20 @@ class ProductCardWidget extends StatelessWidget {
                     const Color(0xFFF1F5F9),
                     const Color(0xFF475569),
                   ),
+                  if (item.hasPresentacion)
+                    _buildCompactPill(
+                      Icons.scale_outlined,
+                      '${item.presentacion! % 1 == 0 ? item.presentacion!.toInt() : item.presentacion!.toStringAsFixed(1)} kg/u',
+                      const Color(0xFFFEF3C7),
+                      const Color(0xFFB45309),
+                    ),
+                  if (item.hasTotalKilos)
+                    _buildCompactPill(
+                      Icons.fitness_center_rounded,
+                      'Total: ${item.totalKilos! % 1 == 0 ? item.totalKilos!.toInt() : item.totalKilos!.toStringAsFixed(1)} kg',
+                      const Color(0xFFECFDF5),
+                      const Color(0xFF047857),
+                    ),
                   if (hasPhoto)
                     InkWell(
                       onTap: openPhotoViewer,

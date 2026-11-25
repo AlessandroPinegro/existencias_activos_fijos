@@ -4,6 +4,7 @@ class ExistenciaModel {
   final String codigo;
   final String? serie;
   final String nombreProducto;
+  final double? presentacion;
   final String unidadMedida;
   final double valorUnitario;
   final String? lote;
@@ -13,6 +14,7 @@ class ExistenciaModel {
   final String? ubicacion;
   final double stockSistema;
   final double cantidadContada;
+  final double? totalKilos;
   final double diferencia;
   final double valorTotalDiferencia;
   final String condicion;
@@ -30,6 +32,7 @@ class ExistenciaModel {
     required this.codigo,
     this.serie,
     required this.nombreProducto,
+    this.presentacion,
     required this.unidadMedida,
     required this.valorUnitario,
     this.lote,
@@ -39,6 +42,7 @@ class ExistenciaModel {
     this.ubicacion,
     required this.stockSistema,
     required this.cantidadContada,
+    this.totalKilos,
     required this.diferencia,
     required this.valorTotalDiferencia,
     required this.condicion,
@@ -60,11 +64,20 @@ class ExistenciaModel {
 
   String get cleanSerie => serie?.trim() ?? '';
 
+  bool get hasPresentacion => presentacion != null && presentacion! > 0;
+  bool get hasTotalKilos => totalKilos != null && totalKilos! > 0;
+
   factory ExistenciaModel.fromJson(Map<String, dynamic> json) {
     double parseDouble(dynamic val) {
       if (val == null) return 0.0;
       if (val is num) return val.toDouble();
       return double.tryParse(val.toString()) ?? 0.0;
+    }
+
+    double? parseOptionalDouble(dynamic val) {
+      if (val == null) return null;
+      if (val is num) return val.toDouble();
+      return double.tryParse(val.toString());
     }
 
     int parseInt(dynamic val) {
@@ -88,6 +101,7 @@ class ExistenciaModel {
       codigo: json['codigo']?.toString() ?? '',
       serie: parseSerie(json['serie']),
       nombreProducto: json['nombre_producto']?.toString() ?? '',
+      presentacion: parseOptionalDouble(json['presentacion']),
       unidadMedida: json['unidad_medida']?.toString() ?? 'UND',
       valorUnitario: parseDouble(json['valor_unitario']),
       lote: json['lote']?.toString(),
@@ -97,6 +111,7 @@ class ExistenciaModel {
       ubicacion: json['ubicacion']?.toString(),
       stockSistema: parseDouble(json['stock_sistema']),
       cantidadContada: parseDouble(json['cantidad_contada']),
+      totalKilos: parseOptionalDouble(json['total_kilos']),
       diferencia: parseDouble(json['diferencia']),
       valorTotalDiferencia: parseDouble(json['valor_total_diferencia']),
       condicion: json['condicion']?.toString().toUpperCase() ?? 'PENDIENTE',
