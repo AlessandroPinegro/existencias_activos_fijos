@@ -90,6 +90,13 @@ class UserModel {
         }
         return r.toString();
       }).toList();
+    } else if (json['empresa'] is Map && json['empresa']['roles'] is List) {
+      parsedRoles = (json['empresa']['roles'] as List).map((r) {
+        if (r is Map && r.containsKey('nombre')) {
+          return r['nombre'].toString();
+        }
+        return r.toString();
+      }).toList();
     }
 
     String? empNombre;

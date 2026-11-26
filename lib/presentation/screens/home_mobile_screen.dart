@@ -50,6 +50,15 @@ class _HomeMobileScreenState extends State<HomeMobileScreen> {
       final activeEmpresaId = overrideEmpresaId ?? _currentUser?.empresaId;
       final res = await ApiClient.get(ApiEndpoints.mobileMenuUrl(activeEmpresaId));
 
+      if (res['roles'] is List && _currentUser != null) {
+        final rolesList = (res['roles'] as List)
+            .map((r) => r is Map ? (r['nombre'] ?? '').toString() : r.toString())
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _currentUser = _currentUser!.copyWith(roles: rolesList);
+        await SecureStorageService.saveUserData(jsonEncode(_currentUser!.toJson()));
+      }
+
       if (res['success'] == true && res['data'] is List) {
         final rawList = res['data'] as List;
         final modules = rawList

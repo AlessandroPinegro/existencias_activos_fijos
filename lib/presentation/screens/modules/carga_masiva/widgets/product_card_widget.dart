@@ -66,38 +66,6 @@ class ProductCardWidget extends StatelessWidget {
         ? item.ubicacion!
         : 'Sin ubicación';
 
-    // Texto descriptivo del estado de conteo a la izquierda
-    String conteoStatusText;
-    Color conteoStatusColor;
-    IconData conteoStatusIcon;
-
-    if (item.condicion == 'PENDIENTE') {
-      conteoStatusText = 'Sin contar';
-      conteoStatusColor = const Color(0xFFB45309);
-      conteoStatusIcon = Icons.schedule_rounded;
-    } else if (item.condicion == 'CONCILIADO' || item.condicion == 'CONFORME') {
-      conteoStatusText =
-          'Conciliado: ${item.cantidadContada.toStringAsFixed(item.cantidadContada.truncateToDouble() == item.cantidadContada ? 0 : 2)} ${item.unidadMedida}';
-      conteoStatusColor = const Color(0xFF15803D);
-      conteoStatusIcon = Icons.check_circle_rounded;
-    } else if (item.condicion == 'SOBRANTE') {
-      conteoStatusText =
-          'Sobrante: ${item.cantidadContada.toStringAsFixed(item.cantidadContada.truncateToDouble() == item.cantidadContada ? 0 : 2)} ${item.unidadMedida}';
-      conteoStatusColor = const Color(0xFF1D4ED8);
-      conteoStatusIcon = Icons.arrow_upward_rounded;
-    } else if (item.condicion == 'FALTANTE') {
-      conteoStatusText =
-          'Faltante: ${item.cantidadContada.toStringAsFixed(item.cantidadContada.truncateToDouble() == item.cantidadContada ? 0 : 2)} ${item.unidadMedida}';
-      conteoStatusColor = const Color(0xFFB91C1C);
-      conteoStatusIcon = Icons.arrow_downward_rounded;
-    } else {
-      // ADICIONAL
-      conteoStatusText =
-          'Adicional: ${item.cantidadContada.toStringAsFixed(item.cantidadContada.truncateToDouble() == item.cantidadContada ? 0 : 2)} ${item.unidadMedida}';
-      conteoStatusColor = const Color(0xFF7E22CE);
-      conteoStatusIcon = Icons.add_circle_outline_rounded;
-    }
-
     final hasPhoto = item.imagenPath != null && item.imagenPath!.trim().isNotEmpty;
 
     void openPhotoViewer() {
@@ -296,32 +264,10 @@ class ProductCardWidget extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // Fila 4: Estado del conteo, botón de foto (si tiene), botón de historial y botón de acción
+              // Fila 4: Botón de foto (si tiene), botón de historial y botón de acción
               Row(
                 children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(
-                          conteoStatusIcon,
-                          size: 14,
-                          color: conteoStatusColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Flexible(
-                          child: Text(
-                            conteoStatusText,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.bold,
-                              color: conteoStatusColor,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  const Spacer(),
 
                   // Botón Acceso Rápido a Fotografía si existe
                   if (hasPhoto) ...[

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../../../core/constants/api_endpoints.dart';
 import '../../../../../core/network/api_client.dart';
+import '../../../../../core/storage/secure_storage_service.dart';
 import '../../../../../data/models/existencia_model.dart';
 import '../../../../../data/models/user_model.dart';
 import 'image_viewer_dialog.dart';
@@ -46,11 +48,22 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
   late Future<dynamic> _historialFuture;
   late double _totalContado;
   bool _puedeVerStock = false;
+  UserModel? _user;
 
   @override
   void initState() {
     super.initState();
+    _user = widget.currentUser;
     _totalContado = widget.item.cantidadContada;
+    if (_user == null) {
+      SecureStorageService.getUserData().then((str) {
+        if (str != null && mounted) {
+          setState(() {
+            _user = UserModel.fromJson(jsonDecode(str));
+          });
+        }
+      });
+    }
     _loadHistorial();
   }
 
@@ -84,6 +97,13 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
     }
   }
 
+  String _formatCantidad(double val) {
+    if (val == val.roundToDouble()) {
+      return val.toInt().toString();
+    }
+    return val.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
+  }
+
   void _openEditDialog(BuildContext context, ExistenciaHistorialModel hist) {
     // La cantidad que se tomó en este movimiento específico
     final double cantidadTomada = (hist.cantidadContadaNueva - hist.cantidadContadaAnterior) > 0
@@ -104,6 +124,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
     final ubicacionCtrl = TextEditingController(text: hist.ubicacion ?? '');
     final obsCtrl = TextEditingController(text: initialObs);
     bool isSaving = false;
+    String? dialogError;
 
     showDialog(
       context: context,
@@ -139,6 +160,33 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (dialogError != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF991B1B),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     Text(
                       widget.item.nombreProducto,
                       style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
@@ -205,7 +253,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
               ),
               actions: [
                 TextButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                  onPressed: isSaving ? null : () => Navigator.of(dialogCtx).pop(),
                   child: const Text('Cancelar', style: TextStyle(color: Color(0xFF64748B))),
                 ),
                 ElevatedButton(
@@ -214,18 +262,19 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                       : () async {
                           final count = double.tryParse(countCtrl.text.trim());
                           if (count == null || count < 0) {
-                            ScaffoldMessenger.of(builderCtx).showSnackBar(
-                              const SnackBar(content: Text('Ingrese una cantidad válida')),
-                            );
+                            setDialogState(() {
+                              dialogError = 'Ingrese una cantidad válida';
+                            });
                             return;
                           }
 
                           setDialogState(() {
                             isSaving = true;
+                            dialogError = null;
                           });
 
                           try {
-                            await ApiClient.put(
+                            final res = await ApiClient.put(
                               ApiEndpoints.modificarHistorial(hist.id),
                               {
                                 'cantidad_contada': count,
@@ -234,31 +283,28 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                               },
                             );
 
-                            if (!context.mounted) return;
-                            if (!dialogCtx.mounted) return;
-                            Navigator.pop(dialogCtx);
+                            if (dialogCtx.mounted) {
+                              Navigator.of(dialogCtx).pop();
+                            }
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Conteo modificado correctamente'),
-                                backgroundColor: Color(0xFF16A34A),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
+                            if (mounted) {
+                              _loadHistorial();
+                              widget.onModified?.call();
 
-                            _loadHistorial();
-                            widget.onModified?.call();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(res['message'] ?? 'Conteo modificado correctamente'),
+                                  backgroundColor: const Color(0xFF16A34A),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
                           } catch (e) {
+                            final err = e.toString().replaceAll('Exception:', '').trim();
                             setDialogState(() {
                               isSaving = false;
+                              dialogError = err;
                             });
-                            if (!dialogCtx.mounted) return;
-                            ScaffoldMessenger.of(dialogCtx).showSnackBar(
-                              SnackBar(
-                                content: Text('Error: ${e.toString().replaceAll('Exception:', '')}'),
-                                backgroundColor: const Color(0xFFDC2626),
-                              ),
-                            );
                           }
                         },
                   style: ElevatedButton.styleFrom(
@@ -325,11 +371,46 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
         bgColor = const Color(0xFFF1F5F9);
     }
 
-    // Validación de coincidencia de usuario: solo el usuario que registró este conteo puede modificarlo
-    final bool canEdit = (widget.currentUser != null &&
+    // Validación de edición:
+    // 1. Debe ser un movimiento de conteo (CONCILIACION, CONTEO_FISICO, REGISTRO_ADICIONAL)
+    // 2. Si el rol tiene la acción "ver_stock_historial" (_puedeVerStock == true), puede actualizar cualquier conteo
+    // 3. O si el usuario autenticado fue quien realizó ese conteo (isCreator == true), también puede modificarlo
+    // 4. Caso contrario, NO se permite modificar y no se muestra el botón
+    final String tipoUpper = hist.tipoMovimiento.toUpperCase().trim();
+    final bool esMovimientoContable = tipoUpper == 'CONTEO_FISICO' ||
+        tipoUpper == 'CONCILIACION' ||
+        tipoUpper == 'REGISTRO_ADICIONAL' ||
+        (tipoUpper != 'CAMBIO_IMAGEN' &&
+         tipoUpper != 'SUSTENTO_DIFERENCIA' &&
+         tipoUpper != 'CARGA_INICIAL' &&
+         !tipoUpper.contains('AJUSTE'));
+
+    final currentUser = _user ?? widget.currentUser;
+    final bool isCreator = currentUser != null &&
         hist.userId != null &&
-        hist.userId == widget.currentUser!.id &&
-        (hist.tipoMovimiento == 'CONTEO_FISICO' || hist.tipoMovimiento == 'REGISTRO_ADICIONAL'));
+        currentUser.id > 0 &&
+        hist.userId == currentUser.id;
+
+    final bool canEdit = esMovimientoContable && (puedeVerStock || isCreator);
+
+    // Cantidad verdaderamente registrada en esta toma física
+    double cantToma = hist.cantidadContadaNueva;
+    if (hist.cantidadContadaAnterior > 0) {
+      final double diff = double.parse((hist.cantidadContadaNueva - hist.cantidadContadaAnterior).toStringAsFixed(4));
+      if (diff > 0) {
+        cantToma = diff;
+      }
+    }
+    final String cantTomaStr = _formatCantidad(cantToma);
+
+    final bool esObsAutomatica = hist.observacion != null &&
+        (hist.observacion!.startsWith('Conteo acumulado') ||
+         hist.observacion!.startsWith('Conteo modificado') ||
+         hist.observacion!.startsWith('Prueba'));
+
+    final String? obsManual = (hist.observacion != null && hist.observacion!.trim().isNotEmpty && !esObsAutomatica)
+        ? hist.observacion!.trim()
+        : null;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -465,9 +546,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                             ),
                           ),
                           Text(
-                            hist.cantidadContadaAnterior > 0
-                                ? '${hist.cantidadContadaAnterior} → ${hist.cantidadContadaNueva} $unidadMedida'
-                                : '${hist.cantidadContadaNueva} $unidadMedida',
+                            '$cantTomaStr $unidadMedida',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -532,7 +611,7 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                   onPressed: () => _openEditDialog(context, hist),
                   icon: const Icon(Icons.edit_rounded, size: 14, color: Color(0xFF2563EB)),
                   label: const Text(
-                    'Modificar',
+                    'Actualizar',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.bold,
@@ -551,10 +630,10 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
             ],
           ),
 
-          if (hist.observacion != null && hist.observacion!.isNotEmpty) ...[
+          if (obsManual != null) ...[
             const SizedBox(height: 6),
             Text(
-              'Obs: ${hist.observacion!}',
+              'Obs: $obsManual',
               style: const TextStyle(
                 fontSize: 11.5,
                 color: Color(0xFF475569),

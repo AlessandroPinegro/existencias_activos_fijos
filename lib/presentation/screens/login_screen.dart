@@ -51,7 +51,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (res['success'] == true && res['data'] != null) {
         final token = res['data']['token'];
-        final userDataMap = res['data']['user'];
+        final userDataMap = Map<String, dynamic>.from(res['data']['user'] ?? {});
+        if (res['data']['roles'] is List && (userDataMap['roles'] == null || (userDataMap['roles'] as List).isEmpty)) {
+          userDataMap['roles'] = res['data']['roles'];
+        }
+        if ((userDataMap['roles'] == null || (userDataMap['roles'] as List).isEmpty) &&
+            userDataMap['empresa'] is Map &&
+            userDataMap['empresa']['roles'] is List) {
+          userDataMap['roles'] = userDataMap['empresa']['roles'];
+        }
         final userModel = UserModel.fromJson(userDataMap);
 
         await SecureStorageService.saveToken(token);
