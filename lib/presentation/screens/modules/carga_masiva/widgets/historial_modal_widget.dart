@@ -73,8 +73,15 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
         if (mounted) {
           final puedeVer = res['puede_ver_stock'] == true ||
               (res['data'] is Map && res['data']['puede_ver_stock'] == true);
+          final dynamic rawCc = res['cantidad_contada'] ??
+              (res['data'] is Map ? res['data']['cantidad_contada'] : null);
+          final double? cc = rawCc != null ? double.tryParse(rawCc.toString()) : null;
+
           setState(() {
             _puedeVerStock = puedeVer;
+            if (cc != null) {
+              _totalContado = cc;
+            }
           });
         }
         return res;
@@ -557,8 +564,8 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                       ),
                     ),
 
-                    // Stock Sistema y Diferencia (Exclusivo si tiene permiso)
-                    if (puedeVerStock && hist.stockSistemaMomento != null) ...[
+                    // Stock Sistema (Exclusivo si tiene permiso)
+                    if (puedeVerStock && hist.stockSistemaMomento != null)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                         decoration: BoxDecoration(
@@ -575,31 +582,6 @@ class _HistorialModalContentState extends State<_HistorialModalContent> {
                           ),
                         ),
                       ),
-                      if (hist.diferenciaMomento != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: hist.diferenciaMomento! > 0
-                                ? const Color(0xFFDBEAFE)
-                                : (hist.diferenciaMomento! < 0 ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7)),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            hist.diferenciaMomento! > 0
-                                ? 'Dif: +${hist.diferenciaMomento} $unidadMedida'
-                                : (hist.diferenciaMomento! < 0
-                                    ? 'Dif: ${hist.diferenciaMomento} $unidadMedida'
-                                    : 'Dif: 0 $unidadMedida'),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: hist.diferenciaMomento! > 0
-                                  ? const Color(0xFF1D4ED8)
-                                  : (hist.diferenciaMomento! < 0 ? const Color(0xFFB91C1C) : const Color(0xFF15803D)),
-                            ),
-                          ),
-                        ),
-                    ],
                   ],
                 ),
               ),
